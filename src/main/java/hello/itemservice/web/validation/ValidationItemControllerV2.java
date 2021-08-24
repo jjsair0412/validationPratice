@@ -51,7 +51,7 @@ public class ValidationItemControllerV2 {
      그니까 에러를 담고있는곳을 대신해준다.
      근데 주의할점은 BindingResult의 파라미터 위치는 ModelAttribute뒤에 와야 한다.
      */
-    @PostMapping("/add")
+//    @PostMapping("/add")
     public String addItemV1(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes, Model model) {
         // 검증 오류 결과를 보관
 //        Map<String, String> errors = new HashMap<>();
@@ -106,6 +106,81 @@ public class ValidationItemControllerV2 {
         }
 
         // 검증에 성공하면 ( 에러가 없다면 )
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
+
+//    @PostMapping("/add")
+    public String addItemV2(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes, Model model) {
+
+        if (!StringUtils.hasText(item.getItemName())){
+            bindingResult.addError(new FieldError("item","itemName",item.getItemName(),false,null,null,"상품 이름은 필수입니다."));
+        }
+        if (item.getPrice() == null || item.getPrice() < 1000 || item.getPrice()>1000000){
+            bindingResult.addError(new FieldError("item","price",item.getPrice(),false,null,null,"가격은 1000원에서 1,000,000까지 허용합니다."));
+        }
+
+        if (item.getPrice() == null || item.getQuantity() > 9999){
+            bindingResult.addError(new FieldError("item","quantity",item.getQuantity(),false,null,null,"수량은 최대 9,999까지 허용합니다."));
+        }
+
+        if (item.getPrice() != null && item.getQuantity() != null){
+            int resultPrice = item.getPrice() * item.getQuantity();
+            if (resultPrice < 10000){
+                bindingResult.addError(new ObjectError("item",null,null,"가격*수량의 합은 10,000원 이상이야 합니다. 현재 값 = " + resultPrice));
+            }
+        }
+
+        if (/**!errors.isEmpty()**/ bindingResult.hasErrors()){
+            log.info("errors={}",bindingResult);
+            return "validation/v2/addForm";
+        }
+
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
+
+    @PostMapping("/add")
+    public String addItemV3(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
+        if (!StringUtils.hasText(item.getItemName())) {
+            /**
+             * 메시지 관리 기능을 사용하기 위해서 ,
+             * new String[]{} 안에 errors.properties의 key값을 넣어준다.
+             * 배열안에 넣어주는 이유는, 여러개의 key를 연속으로 넣어두고 첫번째 key를 찾지 못하면 두번째 key를 찾아서
+             * value를 출력해줄 수 있다.
+             * 여기서도 못찾는다면 default 메시지를 출력해준다.
+             *
+             * 이런 이유때문에 String 배열로 properties내부의 key를 넣어준다.
+             *
+             * 또한 값을 넘기기 위해서는 그다음 순서의 파라미터에 new Object[]형태의 배열로 값들을 순서대로 작성해주면 된다.
+             */
+            bindingResult.addError(new FieldError("item", "itemName", item.getItemName(), false, new String[]{"required.item.itemName"}, null, null));
+        }
+        if (item.getPrice() == null || item.getPrice() < 1000 || item.getPrice() > 1000000) {
+            bindingResult.addError(new FieldError("item", "price", item.getPrice(), false, new String[]{"range.item.price"}, new Object[]{1000, 1000000}, null));
+        }
+        if (item.getQuantity() == null || item.getQuantity() > 10000) {
+            bindingResult.addError(new FieldError("item", "quantity", item.getQuantity(), false, new String[]{"max.item.quantity"}, new Object[]{9999}, null));
+        }
+        //특정 필드 예외가 아닌 전체 예외
+        if (item.getPrice() != null && item.getQuantity() != null) {
+            int resultPrice = item.getPrice() * item.getQuantity();
+            if (resultPrice < 10000) {
+                /**
+                 * 필드에러가 아닌 global error도 똑같이 처리해주면 된다.
+                 */
+                bindingResult.addError(new ObjectError("item", new String[]{"totalPriceMin"}, new Object[]{10000, resultPrice}, null));
+            }
+        }
+        if (bindingResult.hasErrors()) {
+            log.info("errors={}", bindingResult);
+            return "validation/v2/addForm";
+        }
+        //성공 로직
         Item savedItem = itemRepository.save(item);
         redirectAttributes.addAttribute("itemId", savedItem.getId());
         redirectAttributes.addAttribute("status", true);
