@@ -10,6 +10,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -22,8 +24,21 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class ValidationItemControllerV2 {
-
+    private final ItemValidator itemValidator;
     private final ItemRepository itemRepository;
+
+    /**
+     * 해당 컨트롤러안에잇는 메서드가 각각 호출될 때 마다 WebDataBinder가 작동해서,
+     * WebDataBinder에 넣어놓은 검증기를 계속 작동해준다.
+     *
+     * 마치 테스트코드의 @BeforeEach같이 작동하는거다.
+     *
+     * 얘는 컨트롤러에서만 작동한다.
+     */
+    @InitBinder
+    public void init(WebDataBinder dataBinder){
+        dataBinder.addValidators(itemValidator);
+    }
 
     @GetMapping
     public String items(Model model) {
@@ -191,7 +206,7 @@ public class ValidationItemControllerV2 {
     }
 
 
-    @PostMapping("/add")
+//    @PostMapping("/add")
     public String addItemV4(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
 
         log.info("objectName={}",bindingResult.getObjectName());
@@ -248,6 +263,48 @@ public class ValidationItemControllerV2 {
         return "redirect:/validation/v2/items/{itemId}";
     }
 
+//    @PostMapping("/add")
+    public String addItemV5(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
+
+        /**
+         * 검증코드들이 들어가있는 ItemValidator를 자동주입받은 뒤에
+         * .validate로 파라미터로 아까 target으로 캐스팅해놓은 Item과
+         * bindingResult를 넣어주면 된다.
+         */
+        itemValidator.validate(item, bindingResult);
+
+        if (bindingResult.hasErrors()) {
+            log.info("errors={}", bindingResult);
+            return "validation/v2/addForm";
+        }
+
+        //성공 로직
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
+
+    @PostMapping("/add")
+    public String addItemV6(@Validated @ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
+
+        /**
+         * @InitBinder를 사용하기 위해서 검증 대상앞에 @Validated 어노테이션을 추가해준다.
+         * 그렇게 하면 직접 검증코드를 추가해서 파라미터를 넘겨줄 필요가 없다.
+         *
+         * 자동으로 WebDataBinder가 실행하면서 검증 결과를 BindingResult에 넣어놓는다.
+         */
+        if (bindingResult.hasErrors()) {
+            log.info("errors={}", bindingResult);
+            return "validation/v2/addForm";
+        }
+
+        //성공 로직
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
 
     @GetMapping("/{itemId}/edit")
     public String editForm(@PathVariable Long itemId, Model model) {
