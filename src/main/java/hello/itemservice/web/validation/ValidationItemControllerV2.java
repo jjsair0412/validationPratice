@@ -144,8 +144,11 @@ public class ValidationItemControllerV2 {
         return "redirect:/validation/v2/items/{itemId}";
     }
 
-    @PostMapping("/add")
+//    @PostMapping("/add")
     public String addItemV3(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
+
+        log.info("objectName={}",bindingResult.getObjectName());
+        log.info("target={}",bindingResult.getTarget());
         if (!StringUtils.hasText(item.getItemName())) {
             /**
              * 메시지 관리 기능을 사용하기 위해서 ,
@@ -186,6 +189,65 @@ public class ValidationItemControllerV2 {
         redirectAttributes.addAttribute("status", true);
         return "redirect:/validation/v2/items/{itemId}";
     }
+
+
+    @PostMapping("/add")
+    public String addItemV4(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
+
+        log.info("objectName={}",bindingResult.getObjectName());
+        log.info("target={}",bindingResult.getTarget());
+
+        if (bindingResult.hasErrors()) {
+            log.info("errors={}", bindingResult);
+            return "validation/v2/addForm";
+        }
+
+        if (!StringUtils.hasText(item.getItemName())) {
+            /**
+             * rejectValue에서는 파라미터가 순서대로
+             * object는 이미 bindingResult가 알 고 있기 때문에
+             * 바로 field명만 작성한다.
+             * 그다음 아까 errors.properties에 itemName field와 관련있는 Key중 가장 첫번째글자만 따서 작성한다.
+             * error.properties에선 required.item.itemName이다.
+             *
+             * rejectValue가 objectName을 사용해서 item.itemName을 만들어주는것 같다.-?
+             *
+             */
+            bindingResult.rejectValue("itemName", "required");
+        }
+
+        if (item.getPrice() == null || item.getPrice() < 1000 || item.getPrice() > 1000000) {
+            /**
+             * error.properties에 들어가있는 에러 key
+             *
+             * range.item.price
+             *
+             * 파라미터를 에러에 전달해주는 방법은 이전과 동일하고, 그 후에 디폴트메시지가 나오는것도 동일하다.
+             */
+            bindingResult.rejectValue("price","range",new Object[]{1000,1000000},null);
+        }
+        if (item.getQuantity() == null || item.getQuantity() > 10000) {
+            bindingResult.rejectValue("quantity","max",new Object[]{9999},null);
+        }
+        //특정 필드 예외가 아닌 전체 예외
+        if (item.getPrice() != null && item.getQuantity() != null) {
+            int resultPrice = item.getPrice() * item.getQuantity();
+            if (resultPrice < 10000) {
+                /**
+                 * global에러는 그냥 reject를 사용한다.
+                 *
+                 * objectName을 이미 알고 있기때문에 totalPriceMin만 넣어주면 됀다.
+                  */
+                bindingResult.reject("totalPriceMin",new Object[]{10000,resultPrice},null);
+            }
+        }
+        //성공 로직
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
+
 
     @GetMapping("/{itemId}/edit")
     public String editForm(@PathVariable Long itemId, Model model) {
