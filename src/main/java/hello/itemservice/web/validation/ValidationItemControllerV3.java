@@ -2,6 +2,8 @@ package hello.itemservice.web.validation;
 
 import hello.itemservice.domain.item.Item;
 import hello.itemservice.domain.item.ItemRepository;
+import hello.itemservice.domain.item.SaveCheck;
+import hello.itemservice.domain.item.UpdateCheck;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
@@ -41,23 +43,18 @@ public class ValidationItemControllerV3 {
         return "validation/v3//addForm";
     }
 
-    @PostMapping("/add")
+//    @PostMapping("/add")
     public String addItem(@Validated @ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
 
-        /**
-         * 검증의 순서.
-         * 1. ModelAttribute가 붙은 프로퍼티에 set해줌
-         *  -> 이거 실패하면 typeMisMatch로 FieldError 추가
-         *  -> 성공하면 다음으로
-         * 2. Validator 적용한다.
-         *
-         * ModelAttribute로 바인딩에 성공한 필드만 Bean Validaton 적용한다.
-         * 타입변환에 성공해서 바인딩에 성공해야만 검증하는게 맞다.
-         * 왜냐면 min으로 0, max로 100 이렇게 검증을 해놧는데,
-         * 값이 a b 이런 문자가 들어와버리면 검증이 아무 의미가 없기 때문이다.
-         *
-         * 예 : price 에 문자 "A" 입력 -> "A"를 숫자 타입 변환 시도 실패 -> typeMismatch FieldError 추가 -> price 필드는 BeanValidation 적용 X
-         */
+        //특정 필드 예외가 아닌 전체 예외
+        if (item.getPrice() != null && item.getQuantity() != null) {
+            int resultPrice = item.getPrice() * item.getQuantity();
+            if (resultPrice < 10000) {
+                bindingResult.reject("totalPriceMin", new Object[]{10000,
+                        resultPrice}, null);
+            }
+        }
+
         if (bindingResult.hasErrors()) {
             log.info("errors={}", bindingResult);
             return "validation/v3/addForm";
@@ -67,21 +64,93 @@ public class ValidationItemControllerV3 {
         Item savedItem = itemRepository.save(item);
         redirectAttributes.addAttribute("itemId", savedItem.getId());
         redirectAttributes.addAttribute("status", true);
-        return "redirect:/validation/v3//items/{itemId}";
+        return "redirect:/validation/v3/items/{itemId}";
     }
+
+    /**
+     * @Validated의 value값으로 아까 만들어놓은 인터페이스 그룹을 넣어준다.
+     * 해당 예제처럼 작성하면, SaveCheck를 가지고있는 검증만 검증이 먹힌다.
+     *
+     * itemName, price, quantity 이 세가지만 SaveCheck를 groups로 갖고 있기 때문에
+     * 얘네의 검증 조건만 먹히고,
+     * 나머지 id는 groups로 UpdateCheck를 갖고 있기 때문에 검증이 먹히지 않는다.
+     **/
+    @PostMapping("/add")
+    public String addItem2(@Validated(SaveCheck.class) @ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
+
+        //특정 필드 예외가 아닌 전체 예외
+        if (item.getPrice() != null && item.getQuantity() != null) {
+            int resultPrice = item.getPrice() * item.getQuantity();
+            if (resultPrice < 10000) {
+                bindingResult.reject("totalPriceMin", new Object[]{10000,
+                        resultPrice}, null);
+            }
+        }
+
+        if (bindingResult.hasErrors()) {
+            log.info("errors={}", bindingResult);
+            return "validation/v3/addForm";
+        }
+
+        //성공 로직
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v3/items/{itemId}";
+    }
+
 
     @GetMapping("/{itemId}/edit")
     public String editForm(@PathVariable Long itemId, Model model) {
         Item item = itemRepository.findById(itemId);
         model.addAttribute("item", item);
-        return "validation/v3//editForm";
+        return "validation/v3/editForm";
     }
 
-    @PostMapping("/{itemId}/edit")
-    public String edit(@PathVariable Long itemId, @ModelAttribute Item item) {
+//    @PostMapping("/{itemId}/edit")
+    public String edit(@PathVariable Long itemId, @Validated @ModelAttribute Item item, BindingResult bindingResult) {
+
+        //특정 필드 예외가 아닌 전체 예외
+        if (item.getPrice() != null && item.getQuantity() != null) {
+            int resultPrice = item.getPrice() * item.getQuantity();
+            if (resultPrice < 10000) {
+                bindingResult.reject("totalPriceMin", new Object[]{10000,
+                        resultPrice}, null);
+            }
+        }
+
+        if(bindingResult.hasErrors()){
+            log.info("errors={}",bindingResult);
+            return "validation/v3/editForm";
+        }
+
         itemRepository.update(itemId, item);
-        return "redirect:/validation/v3//items/{itemId}";
+        return "redirect:/validation/v3/items/{itemId}";
     }
 
+    /**
+     * 얘는 groups로 UpdateCheck.class만 넣어줫으므로 id까지 검증이 먹힌다.
+     *
+     **/
+    @PostMapping("/{itemId}/edit")
+    public String editV2(@PathVariable Long itemId, @Validated(UpdateCheck.class) @ModelAttribute Item item, BindingResult bindingResult) {
+
+        //특정 필드 예외가 아닌 전체 예외
+        if (item.getPrice() != null && item.getQuantity() != null) {
+            int resultPrice = item.getPrice() * item.getQuantity();
+            if (resultPrice < 10000) {
+                bindingResult.reject("totalPriceMin", new Object[]{10000,
+                        resultPrice}, null);
+            }
+        }
+
+        if(bindingResult.hasErrors()){
+            log.info("errors={}",bindingResult);
+            return "validation/v3/editForm";
+        }
+
+        itemRepository.update(itemId, item);
+        return "redirect:/validation/v3/items/{itemId}";
+    }
 }
 
