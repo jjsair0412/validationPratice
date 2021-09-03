@@ -15,21 +15,21 @@ public class Item {
     검증 어노테이션의 value값으로 groups가 있다.
     여기에 검증을 원하는 특정 그룹만 지정해서 넣어준다.
     **/
-     @NotNull(groups = UpdateCheck.class) // 수정 요구사항
+//     @NotNull(groups = UpdateCheck.class) // 수정 요구사항
     private Long id;
 
      /**
     여러 그룹들이 모두 가져야하는 검증 조건은, 아래처럼 {} 안에 여러개를 넣어둘 수 도 있다.
     **/
-     @NotBlank(groups = {SaveCheck.class, UpdateCheck.class})
+//     @NotBlank(groups = {SaveCheck.class, UpdateCheck.class})
     private String itemName;
 
-    @NotNull(groups = {SaveCheck.class, UpdateCheck.class})
-    @Range(min=1000, max = 1000000, groups = {SaveCheck.class, UpdateCheck.class})
+//    @NotNull(groups = {SaveCheck.class, UpdateCheck.class})
+//    @Range(min=1000, max = 1000000, groups = {SaveCheck.class, UpdateCheck.class})
     private Integer price;
 
-    @NotNull(groups = {SaveCheck.class, UpdateCheck.class})
-    @Max(value = 9999, groups = {SaveCheck.class})
+//    @NotNull(groups = {SaveCheck.class, UpdateCheck.class})
+//    @Max(value = 9999, groups = {SaveCheck.class})
     private Integer quantity;
 
     public Item() {
